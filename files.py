@@ -23,9 +23,9 @@ def Save_sample_to_csv(array, filename, _mode):
 
 
 def quality_criteria_results_print_save_to_file(spec, sens, roc, prob_norm, prob_anem):
-    np.savetxt('./spec_results.txt', spec)
-    np.savetxt('./sens_results.txt', sens)
-    np.savetxt('./roc_results.txt', roc)
+    np.savetxt('output/spec_results.txt', spec)
+    np.savetxt('output/sens_results.txt', sens)
+    np.savetxt('output/roc_results.txt', roc)
 
     print("Probabilities: norm: {0:.2f}, anem: {1:.2f}".format(prob_norm, prob_anem))
     print(np.around(spec.mean(), 3))
