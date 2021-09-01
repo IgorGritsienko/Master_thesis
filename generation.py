@@ -4,6 +4,7 @@ import copy
 import random
 import files
 
+
 def Generate_CTR(freeCoef, weekCoef, week, noise):
      # генерация КТИ
     return freeCoef + weekCoef * week + noise
@@ -84,6 +85,7 @@ def Data_union(norm_data, anem_data, norm_amount, anem_amount):
     X = np.vstack([norm_data, anem_data])
     return X
 
+
 def Add_y(norm_amount, anem_amount, X):
     """
     Первые norm_amount элементов генерируются, как '1'.
@@ -98,14 +100,18 @@ def Add_y(norm_amount, anem_amount, X):
     Xy = np.hstack((X, y))
     return Xy
 
+
 def manipulate_gen_data(weeks_norm, weeks_anem, normal_amount, anemia_amount, scaler, filename, intervals_norm, intervals_anem, *args):
 
-    tmp_weeks_norm = copy.deepcopy(weeks_norm)                                  # копия недель с частотами (изначально частоты по 0)
+    # копия недель с частотами (изначально частоты по 0)
+    tmp_weeks_norm = copy.deepcopy(weeks_norm)
     tmp_weeks_anem = copy.deepcopy(weeks_anem)
 
     #  моделирование выборки
-    normal_data = Sample_simulation(float(args[0][0]), float(args[0][1]), float(args[0][2]), normal_amount, tmp_weeks_norm, intervals_norm)
-    anemia_data = Sample_simulation(float(args[0][4]), float(args[0][5]), float(args[0][6]), anemia_amount, tmp_weeks_anem, intervals_anem)
+    normal_data = Sample_simulation(float(args[0][0]), float(args[0][1]), float(args[0][2]),
+                                    normal_amount, tmp_weeks_norm, intervals_norm)
+    anemia_data = Sample_simulation(float(args[0][4]), float(args[0][5]), float(args[0][6]),
+                                    anemia_amount, tmp_weeks_anem, intervals_anem)
 
     #  объединение данных
     X = Data_union(normal_data, anemia_data, normal_amount, anemia_amount)

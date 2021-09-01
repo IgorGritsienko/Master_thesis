@@ -23,7 +23,6 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
 
 import scipy.stats as st
-from scipy.stats._continuous_distns import _distn_names
 
 import generation
 import files
@@ -31,15 +30,27 @@ import plots
 import define_distribution
 
 def Tune_Hyperparameters(model, X, y):
+    """
+    Подбор гиперпараметров.
+    Создается сетка с различными параметрами и происходит перебор
+    каждый с каждым.
+    Происходит сравнение по критерию.
+    На данный момент - по точности.
+    Наилучший вариант может быть использован в дальнейшем.
+    На данный момент возвращается только решатель (в качестве примера), но
+    при переборе используются еще и различные априорные вероятности.
+    """
+
     cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
     grid = dict()
     grid['solver'] = ['svd', 'lsqr', 'eigen']
     grid['priors'] = [[z / 10, (10 - z) / 10] for z in range(1, 10)]
     search = GridSearchCV(model, grid, scoring='accuracy', cv=cv, n_jobs=-1)
     results = search.fit(X, y)
-    print('Mean Accuracy: %.3f' % results.best_score_)
-    print('Config: %s' % results.best_params_)
+    # print('Mean Accuracy: %.3f' % results.best_score_)
+    # print('Config: %s' % results.best_params_)
     return results.best_params_['solver']
+
 
 def compute_ROC_curve_ROC_area(Y_test, Y_score):
     """
@@ -51,8 +62,10 @@ def compute_ROC_curve_ROC_area(Y_test, Y_score):
     roc_auc = roc_auc_score(Y_test, Y_score)
     return fpr, tpr, roc_auc
 
+
 def clf_results(clf):
     print(f"Коэффициент при КТИ: {clf.coef_[0][0]:.3f}\nКоэффициент при неделях: {clf.coef_[0][1]:.3f}\nКонстанта: {clf.intercept_[0]:.3f}")
+
 
 def clf_indicators(y_test, y_predict):
     """
@@ -83,16 +96,10 @@ def read_data_and_split(filename, position, shift, test_amount):
     return Xy, X_train, X_test, y_train, y_test, position
 
 
-
-if __name__ == "__main__":
-
-    # Начало программы
-    #  для фиксации значений выставляем seed
-    np.random.seed(0)
-    warnings.filterwarnings("ignore")
-    sns.set_style("darkgrid")
-
+def main_process():
     """
+    Основная функция программы.
+    
     В input содержатся модели и кол-во записей.
     В params - число запусков эксперимента, флаг, обозначающей, будет ли тестовая
     выборка иметь другие параметры и соотношение тестовой и тренировочной выборки.
@@ -100,14 +107,14 @@ if __name__ == "__main__":
     Остальные файлы создаются пустыми.
     """
 
-    input_ = './input.txt'
-    records = './records.csv'
-    dif_test_records = './dif_test_records.csv'
-    train_sample = './train_sample.csv'
-    test_sample = './test_sample.csv'
-    params_ = './params.txt'
-    frequency_norm = './frequency_norm.txt'
-    frequency_anem = './frequency_anem.txt'
+    input_ = 'input_data/input.txt'
+    records = 'csv_files/records.csv'
+    dif_test_records = 'csv_files/dif_test_records.csv'
+    train_sample = 'csv_files/train_sample.csv'
+    test_sample = 'csv_files/test_sample.csv'
+    params_ = 'input_data/params.txt'
+    frequency_norm = 'input_data/frequency_norm.txt'
+    frequency_anem = 'input_data/frequency_anem.txt'
 
     # если существует файл с записями, очистить его
     files.clear_file(records)
@@ -189,16 +196,16 @@ if __name__ == "__main__":
         clf.fit(X_train, y_train)
         # предсказываем
         y_predict = clf.predict(X_test)
-        clf_results(clf)
+        # clf_results(clf)
         #  график рассеивания
-        plots.scatter_plot(X_test, y_test, clf.coef_[0][0], clf.coef_[0][1], clf.intercept_)
+        # plots.scatter_plot(X_test, y_test, clf.coef_[0][0], clf.coef_[0][1], clf.intercept_)
 
         #  получаем чувствителньость и специфичность
         specificity, sensitivity = clf_indicators(y_test, y_predict)
 
         y_score = clf.decision_function(X_test)
         fpr, tpr, roc_auc = compute_ROC_curve_ROC_area(y_test, y_score)
-        plots.plot_ROC(fpr, tpr, roc_auc)
+        # plots.plot_ROC(fpr, tpr, roc_auc)
 
 # =============================================================================
 #         сохранение данных, на которых проводится тренировка и тест
@@ -225,11 +232,21 @@ if __name__ == "__main__":
     #prob_norm = prob_norm + 0.1 # для цикла while при переборе априорных вероятностей
 
     #np.random.shuffle(np_spec_list) #DevSkim: ignore DS148264
-    # length = int(np_spec_list.size / 2)
-    # np_spec_list_train, np_spec_list_test = np_spec_list[:length], np_spec_list[length:]
+    length = int(np_spec_list.size / 2)
+    np_spec_list_train, np_spec_list_test = np_spec_list[:length], np_spec_list[length:]
+
+    # количество распределений для отрисовки
+    number_distributions_to_plot = 1
+    dist, params = define_distribution.get_best_distribution(np_spec_list_train, number_distributions_to_plot)
+    D, p = st.kstest(np_spec_list_test, dist, args=params)
+    print(dist, D, p)
+    
 
 
-    #number_distributions_to_plot = 1
-    #dist, params = define_distribution.get_best_distribution(np_spec_list_train, number_distributions_to_plot)
-    #D, p = st.kstest(np_spec_list_test, dist, args=params)
-    #print(dist, D, p)
+if __name__ == "__main__":
+    # Начало программы
+    #  для фиксации значений выставляем seed
+    np.random.seed(0)
+    warnings.filterwarnings("ignore")
+    sns.set_style("darkgrid")
+    main_process()

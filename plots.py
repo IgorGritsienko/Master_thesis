@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def scatter_plot(X, Y, coef1, coef2, const):                                   # график рассеивания
     x = np.array([-2, 2])                                                      # ось Х
     y_hyperplane = -(const + x * coef1) / coef2                                # построение дискриминирующей линии
