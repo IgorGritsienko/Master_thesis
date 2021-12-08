@@ -1,0 +1,4 @@
+Distr;D_stats;p_value;Parameters
+levy_stable;;;(2.0, nan, nan, nan)
+logistic;;;(0.9987430690427311, -0.013077378001830054)
+recipinvgauss;;;(0.0021249003110151952, -0.5751593544471965, 0.0033139576848640277)

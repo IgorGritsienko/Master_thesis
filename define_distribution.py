@@ -1,27 +1,22 @@
-import numpy as np
 import pandas as pd
+import numpy as np
+
 import scipy.stats as st
-import matplotlib.pyplot as plt
 from scipy.stats._continuous_distns import _distn_names
 
+import files
+import plots
 
-def get_best_distribution(data, number_distributions_to_plot):
-
+def get_best_distribution(data_type, train_data, validate_data, test_data, sigma_ratio, simulationAmount):
+    # создаем директорию для конкретного случая
+    dir_name = "output/" + data_type + "_ratio_" + str(sigma_ratio) + "_amount_" + str(simulationAmount)
+    files.create_dir(dir_name)
+    
     # Set up empty lists to stroe results
     D_values = []
     p_values = []
-    parameters = []
-
-    weights=np.ones_like(data) / len(data)
-    # Строим гистограмму, по ней определяем минимальные и максимальные значения по ОХ, чтобы далее на этом участке построить теоретическую плотность
-    fig = plt.figure()
-    ax = fig.add_axes([.775, .125, .775, .755])
-    ax.hist(data, weights=weights)
-    #plt.hist(data, weights=weights)
-    xt = ax.get_xticks()
-    #xt = plt.xticks()[0]
-    xmin, xmax = min(xt), max(xt)
-    lnspc = np.linspace(xmin, xmax, len(data))
+    # parameters = []
+    significance_level = 0.05
 
     # dist_names = ["alpha","anglit","arcsine","beta","betaprime","bradford","burr","cauchy","chi","chi2","cosine",
     #     "dgamma","dweibull","erlang","expon","exponnorm","exponweib","exponpow","f","fatiguelife","fisk",
@@ -32,55 +27,198 @@ def get_best_distribution(data, number_distributions_to_plot):
     #     "logistic","loggamma","loglaplace","lognorm","lomax","maxwell","mielke","nakagami","ncx2","ncf",
     #     "nct","norm","pareto","pearson3","powerlaw","powerlognorm","powernorm","rdist","reciprocal",
     #     "rayleigh","rice","recipinvgauss","semicircular","t","triang","truncexpon","truncnorm","tukeylambda",
-    #     "uniform","vonmises","vonmises_line","wald","weibull_min","weibull_max","wrapcauchy"]
+    #     "uniform","vonmises","vonmises_line","wald","weibull_min","weibull_max"]
 
-    dist_names = ["norm", "exponweib", "weibull_max", "weibull_min", "pareto", "genextreme"]
+    # для ROC AUC
+    # dist_names = ["alpha","betaprime","burr","dgamma",
+    #     "dweibull","exponnorm","f","fatiguelife","fisk",
+    #     "foldnorm","genlogistic","gennorm", "genextreme",
+    #     "gumbel_l","hypsecant","invgamma","johnsonsb","johnsonsu","laplace","levy_stable",
+    #     "logistic","loggamma","lognorm","mielke","nakagami","norm","pearson3",
+    #     "powerlognorm","powernorm","recipinvgauss","t","tukeylambda","weibull_min"]
+
+
+    # для ROC AUC на 1700 запусках: 50-30-20
+    # в порядке убываничя p-value
+    #dist_names = ["exponweib", "gumbel_l", "exponpow", "johnsonsb", "pearson3",
+    #              "beta", "johnsonsu", "gengamma", "powernorm"]
+    
+    # для ROC AUC на 2000 запусках: 50-30-20
+    # ДЛЯ ПРЕЗЕНТАЦИИ ГРАФИКИ
+    dist_names = ["powernorm",]#"exponweib", "gumbel_l", "johnsonsb", "pearson3", "johnsonsu"]
+    
+    # genlogistic loggamma gausshyper
+
+    # ДЛЯ СПЕЦИФИЧНОСТИ
+    # dist_names = ["alpha",
+    #     "dgamma","dweibull","erlang","expon","exponnorm","exponweib","exponpow","f","fatiguelife","fisk",
+    #     "genlogistic","gennorm","genexpon",
+    #     "gausshyper","gamma","gengamma",
+    #     "gumbel_l","invgamma","invgauss",
+    #     "invweibull","johnsonsb","johnsonsu","laplace","levy","levy_l","levy_stable",
+    #     "logistic","loggamma","loglaplace","lognorm","nakagami", "norm","pearson3","powernorm","rdist","reciprocal",
+    #     "rayleigh","rice","recipinvgauss","semicircular","t","tukeylambda","weibull_max"]
+
+
 
         #_distn_names
+        # подбор параметров для распределений
+        # стадия обучения
+    params_list = []
     for dist_name in dist_names:
         dist = getattr(st, dist_name)
-        param = dist.fit(data)
+        param = dist.fit(train_data)
 
-        # Obtain the KS test P statistic, round it to 5 decimal places
-        D, p = st.kstest(data, dist_name, args=param)
-        p = np.around(p, 5)
-        p_values.append(p)
+        # Obtain the KS test P statistic, round it to 3 decimal places
+        # Прошедшие согласие распределения заносятся в новый массив
+        # стадия валидации
+        D, p = st.kstest(validate_data, dist_name, args=param)
+        p = np.around(p, 3)
         D_values.append(D)
-
+        p_values.append(p)
+        params_list.append(param)
+    
+    # создаем таблицу (датафрейм) и добавляем столбцы с данными
     results = pd.DataFrame()
-    results['Distribution'] = dist_names
+    results['Distr'] = dist_names
     results['D_stats'] = D_values
     results['p_value'] = p_values
-    results.sort_values(['D_stats'], inplace=True)
+    results['Parameters'] = params_list
+    # сортируем по p-value
+    results.sort_values(['p_value'], inplace=True, ascending=False)
+    # сохраняем в файл датафрейм
+    results.to_csv(dir_name + '/agr_crit.csv', sep=';',index=False, mode='a', header=True, float_format='%.6f')
+    # удаляем распределения, не прошедшие контроль p-value
+    results.drop(results[results['p_value'] < significance_level].index, inplace=True)
+    # сохраняем в файл датафрейм
+    results.to_csv(dir_name + '/passed_crit.csv', sep=';',index=False, mode='a', header=True, float_format='%.6f')
 
-    print(results)
-
-    dist_names = results['Distribution'].iloc[0:number_distributions_to_plot]
-
-    for dist_name in dist_names:
+    #results.sort_values(['D_stats'], inplace=True)
+    sorted_test_data = np.sort(test_data, kind='heapsort')
+    kolmogorov_distance_list = []
+    edf_list = []
+    for dist_name in results['Distr'].values:
         dist = getattr(st, dist_name)
-        param = dist.fit(data)
-        parameters.append(param)
+        # находим строку в датафрейме с нужным распределением
+        row = results[results['Distr'] == dist_name]
+        # берем столбец с параметрами (мю, сигма) для дальнейшего использования
+        params = (row.loc[:, 'Parameters']).values
+        # вычисляем эмпирическую ф-ю распределения и расстояние колмогорова
+        edf, kolmogorov_distance = kolm_dist(sorted_test_data, dist, params)
+        # добавляем в список для таких же величин, но при других распределениях
+        kolmogorov_distance_list.append(kolmogorov_distance)
+        edf_list.append(edf)
+    
+    # добавляем в датафрейм новый столбец
+    results['Kolm Dist'] = kolmogorov_distance_list
+    results['edf'] = edf_list
+    results.to_csv(dir_name + '/kolm_dist.csv', sep=';',index=False, mode='a', header=True, float_format='%.6f')
 
-        pdf_fitted = dist.pdf(lnspc, *param[:-2], loc=param[-2], scale=param[-1]) * weights
+    # сортируем по возрастанию расстояния Колмогорова
+    results.sort_values(['Kolm Dist'], inplace=True)
+    # берем первое значение по индексу
+    # если таковых нет, выходим из функции
+    if (results.size == 0):
+        return
+    # получаем строковое значение названия распределения
+    best_dist = results.iloc[0]
+    # по строковому значению получаем объект-распределение
+    dist = getattr(st, best_dist['Distr'])
+    params = best_dist['Parameters']
+    edf = best_dist['edf']
+    # вычисляем значения для теоритической ф-и распределения
+    cdf = dist.cdf(sorted_test_data, *params[:-2], loc=params[-2], scale=params[-1])
+    # отрисовываем теоретическую и эмпирическую функции
+    plots.plot_cdf_edf(dist_name, sorted_test_data, cdf, edf, dir_name)
+    
+    # сортируем по убыванию p-value
+    results.sort_values(['p_value'], inplace=True, ascending=False)
+    # подсчитываем кол-во строк
+    size = results['Distr'].values.size
+    # если эл-ов меньше 5, то берем кол-во строк
+    if size > 6:
+        size = 6
+    # строим графики теоретической и эмпирической функций
+    for i in range(size):
+        dist = getattr(st, results['Distr'].values[i])
+        params = results['Parameters'].values[i]
+        cdf = dist.cdf(sorted_test_data, *params[:-2], loc=params[-2], scale=params[-1])
+        edf = results['edf'].values[i]
+        plots.plot_cdf_edf(results['Distr'].values[i], sorted_test_data, cdf, edf, dir_name)
+    
+    return best_dist
 
-        #scale_pdf = np.trapz (h[0], h[1][:-1]) / np.trapz (pdf_fitted, lnspc)
-        #pdf_fitted *= scale_pdf
-        plt.plot(lnspc, pdf_fitted, label=dist_name)
-    #plt.plot(lnspc, dist.pdf(lnspc, param[-2], param[-1]))
-    dist_parameters = pd.DataFrame()
+    # веса для столбцов гистограммы - одинаковые 
+    #weights=np.ones_like(test_data) / len(test_data)
+    #ax.hist(test_data, weights=weights)
 
-    dist_parameters['Distribution'] = (results['Distribution'].iloc[0:number_distributions_to_plot])
-    dist_parameters['Distribution parameters'] = parameters
 
-    plt.legend(loc='upper right')
-    plt.show()
+def kolm_dist(sorted_test_data, dist, params):
+    # теоретическая функция распределения по значениям иксов
+    cdf = dist.cdf(sorted_test_data, *params[0][:-2], loc=params[0][-2], scale=params[0][-1])
+    # для эмпирической функции распределения в качестве начального значения берем
+    # значение теоретической функции распределения в первой точке
+    edf = []
+    # построение эмпирической функции распределения
+    step = 1 / sorted_test_data.size
+    for i in range(sorted_test_data.size):
+        edf.append(step * i)
+    edf = np.array(edf)
+    # считаем расстояние Колмогорова
+    kolmogorov_distance = abs(edf - cdf).max()
+    return edf, kolmogorov_distance
 
-    # Print parameter results
-    print ('\nDistribution parameters:')
-    print ('------------------------')
 
-    for index, row in dist_parameters.iterrows():
-        print ('\nDistribution:', row[0])
-        print ('Parameters:', row[1])
-    return dist_parameters.iat[0, 0], dist_parameters.iat[0, 1]
+def check_for_agr(data_type, data):
+    dir_name = "output/" + data_type + "_ratio_1.0_amount_2000"
+    file_name = dir_name + '/kolm_dist.csv'
+    df = pd.read_csv(file_name, delimiter=';')
+    for i in range(len(df.index)):
+        dist_name = df.iloc[i, 0]
+        dist = getattr(st, dist_name)
+        params = df.iloc[i, 3]
+        # преобразовать строку с параметрами в кортеж
+        params = tuple(map(float, params[1 : -1 : ].split(', ')))
+        D, p = st.kstest(data, dist_name, args=params)
+        print(f"dist: {dist_name}\nparams: {params}\np-value: {p}")
+    
+
+#def calculate_cdf(dist, sorted_test_data, significance_level, params):
+    # вычисляем верхнюю и нижнюю границы по х
+    #lower_bound = dist.ppf(significance_level, *params[:-2],
+    #                       loc=params[-2], scale=params[-1])
+    #upper_bound = dist.ppf(1 - significance_level, *params[:-2],
+    #                       loc=params[-2], scale=params[-1])
+    #x = np.linspace(lower_bound, upper_bound, 100)
+    #x = np.linspace(edf[0], edf[-1], edf.size)
+    #cdf_fitted = dist.cdf(sorted_test_data, *params[:-2], loc=params[-2], scale=params[-1])
+    # вернуть х и посчитанные значения для теоретической ф-и
+    #return cdf_fitted
+
+    #dist_names = results['Distribution'].iloc[0:number_distributions_to_plot]
+    
+    # for dist_name in dist_names:
+    #     dist = getattr(st, dist_name)
+    #     param = dist.fit(data)
+    #     parameters.append(param)
+
+    #     # строим теоретическую плотность распределения
+    #     pdf_fitted = dist.pdf(lnspc, *param[:-2], loc=param[-2], scale=param[-1]) * weights[0]
+    #     plt.plot(lnspc, pdf_fitted, label=dist_name)
+    # #plt.plot(lnspc, dist.pdf(lnspc, param[-2], param[-1]))
+    # dist_parameters = pd.DataFrame()
+
+    # dist_parameters['Distribution'] = (results['Distribution'].iloc[0:number_distributions_to_plot])
+    # dist_parameters['Distribution parameters'] = parameters
+
+    # plt.legend(loc='upper right')
+    # plt.show()
+
+    # # Print parameter results
+    # print ('\nDistribution parameters:')
+    # print ('------------------------')
+
+    # for index, row in dist_parameters.iterrows():
+    #     print ('\nDistribution:', row[0])
+    #     print ('Parameters:', row[1])
+    # return dist_parameters.iat[0, 0], dist_parameters.iat[0, 1]
