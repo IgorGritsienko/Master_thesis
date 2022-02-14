@@ -9,6 +9,12 @@ def Generate_CTR(freeCoef, weekCoef, week, noise):
      # генерация КТИ
     return freeCoef + weekCoef * week + noise
 
+# добавление квадратичного члена
+# эксперимент для Делонге
+# кол-во циклов при генерации было уменьшено в 2 раза, но теперь вызываются 2 функции по очереди
+def Generate_quad_CTR(freeCoef, weekCoef, week, noise):
+     # генерация КТИ
+    return freeCoef + 0.0006 * pow(week, 2) + weekCoef * week + noise
 
 def GenerateNoise(deviation):
     # генерация одной записи шума
@@ -63,14 +69,14 @@ def Sample_simulation(free_coef, week_coef, deviation, amount, weeks, interval):
 
     CTR = []
 
-    for i in range(len(weeks)):                                                 # "распакуем" частоту в недель (н-р: 2 записи 11 недели распакуются в "11, 11")
+    for i in range(len(weeks)):                                   # "распакуем" частоту в недель (н-р: 2 записи 11 недели распакуются в "11, 11")
         for j in range(weeks[i][1]):
             CTR.append(weeks[i][0])
 
-    for i in range(amount):                                                     # генерация КТИ
+    for i in range(int(amount)):                                              # генерация КТИ
         CTR.append(Generate_CTR(free_coef, week_coef, CTR[i], noise[i]))   # генерируется в один столбец, продолжая записи недель
-
-    CTR =  np.array(CTR)                                                        # преобразуем list в numpy array для дальнейшей работы
+        # CTR.append(Generate_quad_CTR(free_coef, week_coef, CTR[i], noise[i]))
+    CTR =  np.array(CTR)                                                   # преобразуем list в numpy array для дальнейшей работы
 
     return CTR
 
@@ -95,22 +101,29 @@ def Add_y(norm_amount, anem_amount, X):
     В конце производим склейку нового столбца.
     """
 
-    y = np.ones(norm_amount)             # создаем вектор принадлежности наблюдений к классам
-    y = np.append(y, np.zeros(anem_amount)).reshape((-1, 1))
+    y = np.zeros(norm_amount)             # создаем вектор принадлежности наблюдений к классам
+    y = np.append(y, np.ones(anem_amount)).reshape((-1, 1))
     Xy = np.hstack((X, y))
     return Xy
 
 
-def manipulate_gen_data(weeks_norm, weeks_anem, normal_amount, anemia_amount, scaler, filename, intervals_norm, intervals_anem, *args):
-
+def manipulate_gen_data(weeks_norm, weeks_anem, normal_amount, anemia_amount, scaler, filename, intervals_norm, intervals_anem, params):
+    """
+    Моделируем данные.
+    Объединяем нормальный и анемичные данные в один массив.
+    Тренируем Скейлер и используем его.
+    Добавляем target (0 или 1) к данным.
+    Сохраняем в файл.
+    """
+    
     # копия недель с частотами (изначально частоты по 0)
     tmp_weeks_norm = copy.deepcopy(weeks_norm)
     tmp_weeks_anem = copy.deepcopy(weeks_anem)
 
     #  моделирование выборки
-    normal_data = Sample_simulation(float(args[0][0]), float(args[0][1]), float(args[0][2]),
+    normal_data = Sample_simulation(params[0], params[1], params[2],
                                     normal_amount, tmp_weeks_norm, intervals_norm)
-    anemia_data = Sample_simulation(float(args[0][4]), float(args[0][5]), float(args[0][6]),
+    anemia_data = Sample_simulation(params[4], params[5], params[6],
                                     anemia_amount, tmp_weeks_anem, intervals_anem)
 
     #  объединение данных
