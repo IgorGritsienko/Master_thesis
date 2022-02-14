@@ -1,12 +1,15 @@
 import warnings
 
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import seaborn as sns
+from numpy.random import default_rng
+from numpy.random import randint
 
 
 from sklearn import preprocessing
-from numpy.random import default_rng
-from numpy.random import randint
 
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
@@ -21,13 +24,13 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
 
-
-import generation
-import files
 import plots
 
-import define_distribution
+import plots
 import delong
+import plots
+import plots
+import define_distribution
 
 
 def Tune_Hyperparameters(model, X, y):
@@ -94,9 +97,6 @@ def read_data_and_split(filename, position, shift, test_amount):
     position += shift
     Xy = Xy.to_numpy()
     X_train, X_test, y_train, y_test = train_test_split(Xy[:, :2], Xy[:, 2], test_size = test_amount, random_state=np.random.randint(10000))
-    return Xy, X_train, X_test, y_train, y_test, position
-
-
 def split_criteria_data_into_sets(criteria_data, N):
     """
     На входе имеем список результатов по одному из критериев и размер массива (кол-во запусков эксперимента)
@@ -161,6 +161,9 @@ def calc_data_for_compbdt(array1, array2):
         
     return s11, s10, s01, s00, r11, r10, r01, r00
 
+    return Xy, X_train, X_test, y_train, y_test, position
+
+
 def main_process():
     """
     Основная функция программы.
@@ -188,15 +191,15 @@ def main_process():
     # если существует файл с записями, очистить его
     files.clear_file(records)
     files.clear_file(dif_test_records)
-    files.delete_file(compbdt_old)
-
-    #  считываем данные модели и присваиваем переменнным соответствующие значения
     model_parameters = [float(i) for i in files.Read_parameters(input_)]
     
     # запоминаем отношение сигм для дальнейшего использования
     sigma_ratio = round(model_parameters[2] / model_parameters[6], 2)
     
     
+    model_parameters = files.Read_parameters(input_)
+    model_parameters = files.Read_parameters(input_)
+    model_parameters = files.Read_parameters(input_)
     normalAmount = int(model_parameters[3])
     anemiaAmount = int(model_parameters[7])
 
@@ -258,10 +261,10 @@ def main_process():
     prob_anem = 1 - prob_norm
 
     # позиция, с которой необходимо считывать записи для текущего эксперимента.
-    position = 0
-    position_dif_test = 0
-
     # каждый раз позиция увеличивается на N (при инородной тестовой выборке)
+    #  каждый раз позиция увеличивается на N
+    #  каждый раз позиция увеличивается на N
+    #  каждый раз позиция увеличивается на N
     position_shift_dif_test = test_normal_amount + test_anemia_amount
 
     # список для хранения результатов Z оценок
@@ -278,9 +281,6 @@ def main_process():
         if (isTestSampleCustom == 1):
             _, _, X_test, _, y_test, position_dif_test = read_data_and_split(dif_test_records, position_dif_test,
                                                                           position_shift_dif_test, int(N * (1 - N_train_rate)))
-
-        # перебор классификаторов и параметра shrinkage. критерий выбора - наилучшая точность
-        # используется отдельно, вне основной процедуры, для выбора наилучших гиперпараметров
         #solver = Tune_Hyperparameters(clf, Xy[:, :2], Xy[:, 2])
       
         lda = LinearDiscriminantAnalysis(solver='svd', priors=[prob_norm, prob_anem])
@@ -293,7 +293,7 @@ def main_process():
         qda.fit(X_train, y_train)
         
         # plots.plot_lda_vs_qda(lda, qda, X_test, y_test)
-
+        # plots.scatter_plot(X_test, y_test, clf.coef_[0][0], clf.coef_[0][1], clf.intercept_)
         y_predict_lda = lda.predict(X_test)
         # матрица ошибок sklearn (инверсирована)
         cf = confusion_matrix(y_test, y_predict_lda)
@@ -312,6 +312,9 @@ def main_process():
         # print(round(sensitivity_lda, 5), round(specificity_lda, 5))
         # print(round(sensitivity_qda, 5), round(specificity_qda, 5))
         
+
+
+
 # =============================================================================
 #         y_score = lda.decision_function(X_test)
 #         fpr, tpr, roc_auc = compute_ROC_curve_ROC_area(y_test, y_score)
@@ -319,9 +322,6 @@ def main_process():
 #         
 #           # получаем чувствительность и специфичность и ROC
 #         добавляем результаты в списки и повторяем процесс
-#         roc_list.append(roc_auc)
-# =============================================================================
-
         # spec_list.append(specificity)
         # sens_list.append(sensitivity)
         
@@ -349,6 +349,9 @@ def main_process():
     # np_roc_list = np.array(roc_list)
     
 
+    plots.plot_criteria_distributions(np_spec_list, np_sens_list, np_roc_list)
+    plots.plot_criteria_distributions(np_spec_list, np_sens_list, np_roc_list)
+    plots.plot_criteria_distributions(np_spec_list, np_sens_list, np_roc_list)
 
 # =============================================================================
 #         # Блок для ДеЛонге, Вычисление Z-оценок, p-vaue, подбор теоретической
@@ -395,9 +398,6 @@ def main_process():
 #     
 #     files.write_to_txt('p-value.txt', p_list)
 #     files.write_to_txt('Z_score.txt', Z_score_list)
-#     files.write_to_txt('Z_score_edf.txt', edf)
-# =============================================================================
-
     
     # сохраняем результаты в файл
 # =============================================================================
@@ -418,6 +418,9 @@ def main_process():
 #     #    pd.set_option("colheader_justify", "left")
 #     #    print(f"Наилучшее распределение: {dist}")
 # =============================================================================
+    
+    
+    
 
 
 if __name__ == "__main__":
