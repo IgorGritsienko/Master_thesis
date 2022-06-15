@@ -69,3 +69,11 @@ def write_to_txt(filename, array):
         with open(filename, 'w') as f:
             for item in array:
                 f.write("%s\n" % item)
+                
+def write_to_txt_ISW(filename, array, comment):
+        with open(filename, 'w') as f:
+            f.write("%s\n" % comment)
+            f.write("%s\n" % str(0))
+            f.write("%s\n" % str(len(array)))
+            for item in array:
+                f.write("%s\n" % item)

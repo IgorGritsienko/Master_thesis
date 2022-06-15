@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from numpy.random import default_rng
 
 import scipy.stats as st
 from scipy.stats._continuous_distns import _distn_names
@@ -7,9 +8,29 @@ from scipy.stats._continuous_distns import _distn_names
 import files
 import plots
 
-def get_best_distribution(data_type, train_data, validate_data, test_data, sigma_ratio, simulationAmount):
+def split_criteria_data_into_sets(criteria_data, N):
+    """
+    На входе имеем список результатов по одному из критериев и размер массива (кол-во запусков эксперимента)
+    Разбиваем его на тренировочную, валидационную и тестовую подвыборку.
+    Соотношение 50-30-20.
+    """
+    
+    train_rate = 0.5
+    validate_rate = 0.3
+    
+    # перемешать данные
+    rng = default_rng()
+    rng.shuffle(criteria_data)
+    
+    train_data = criteria_data[ : int(N * train_rate)]
+    validate_data = criteria_data[int(N * train_rate) : int(N * (train_rate + validate_rate))]
+    test_data = criteria_data[int(N * (train_rate + validate_rate)) : ]
+    return train_data, validate_data, test_data
+
+
+def get_best_distribution(data_type, train_data, validate_data, test_data, sigma_ratio, simulationAmount, distribution):
     # создаем директорию для конкретного случая
-    dir_name = "output/" + data_type + "_ratio_" + str(sigma_ratio) + "_amount_" + str(simulationAmount)
+    dir_name = "outputROC/" + str(distribution) + "/" + data_type + "_ratio_" + str(sigma_ratio) + "_amount_" + str(simulationAmount)
     files.create_dir(dir_name)
     
     # Set up empty lists to stroe results
@@ -30,22 +51,22 @@ def get_best_distribution(data_type, train_data, validate_data, test_data, sigma
     #     "uniform","vonmises","vonmises_line","wald","weibull_min","weibull_max"]
 
     # для ROC AUC
-    # dist_names = ["alpha","betaprime","burr","dgamma",
-    #     "dweibull","exponnorm","f","fatiguelife","fisk",
-    #     "foldnorm","genlogistic","gennorm", "genextreme",
-    #     "gumbel_l","hypsecant","invgamma","johnsonsb","johnsonsu","laplace","levy_stable",
-    #     "logistic","loggamma","lognorm","mielke","nakagami","norm","pearson3",
-    #     "powerlognorm","powernorm","recipinvgauss","t","tukeylambda","weibull_min"]
+    dist_names = ["alpha","betaprime","burr","dgamma",
+        "dweibull","exponnorm","f","fatiguelife","fisk",
+        "foldnorm","genlogistic","gennorm", "genextreme",
+        "gumbel_l","hypsecant","invgamma","johnsonsb","johnsonsu","laplace","levy_stable",
+        "logistic","loggamma","lognorm","mielke","nakagami","norm","pearson3",
+        "powerlognorm","powernorm","recipinvgauss","t","tukeylambda","weibull_min"]
 
 
     # для ROC AUC на 1700 запусках: 50-30-20
     # в порядке убываничя p-value
-    #dist_names = ["exponweib", "gumbel_l", "exponpow", "johnsonsb", "pearson3",
-    #              "beta", "johnsonsu", "gengamma", "powernorm"]
+    # dist_names = ["exponweib", "gumbel_l", "exponpow", "johnsonsb", "pearson3",
+    #               "beta", "johnsonsu", "gengamma", "powernorm"]
     
     # для ROC AUC на 2000 запусках: 50-30-20
     # ДЛЯ ПРЕЗЕНТАЦИИ ГРАФИКИ
-    dist_names = ["powernorm",]#"exponweib", "gumbel_l", "johnsonsb", "pearson3", "johnsonsu"]
+   # dist_names = ["johnsonsu", "exponweib", "gumbel_l"]# "johnsonsb", "pearson3", "powernorm"]
     
         #_distn_names
         # подбор параметров для распределений
@@ -55,7 +76,6 @@ def get_best_distribution(data_type, train_data, validate_data, test_data, sigma
         dist = getattr(st, dist_name)
         param = dist.fit(train_data)
 
-        # Obtain the KS test P statistic, round it to 3 decimal places
         # Прошедшие согласие распределения заносятся в новый массив
         # стадия валидации
         D, p = st.kstest(validate_data, dist_name, args=param)
@@ -133,10 +153,6 @@ def get_best_distribution(data_type, train_data, validate_data, test_data, sigma
         plots.plot_cdf_edf(results['Distr'].values[i], sorted_test_data, cdf, edf, dir_name)
     
     return best_dist
-
-    # веса для столбцов гистограммы - одинаковые 
-    #weights=np.ones_like(test_data) / len(test_data)
-    #ax.hist(test_data, weights=weights)
 
 
 def kolm_dist(sorted_test_data, dist, params):

@@ -1,6 +1,14 @@
-import pandas as pd
 import numpy as np
 import scipy.stats
+
+"""
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+Adopted from https://github.com/yandexdataschool/roc_comparison.
+"""
+
 
 # AUC comparison adapted from
 # https://github.com/Netflix/vmaf/
@@ -23,7 +31,7 @@ def compute_midrank(x):
         T[i:j] = 0.5*(i + j - 1)
         i = j
     T2 = np.empty(N, dtype=np.float)
-    # Note(kazeevn) +1 is due to Python using 0-based indexing
+    # +1 is due to Python using 0-based indexing
     # instead of 1-based in the AUC formula in the paper
     T2[J] = T + 1
     return T2
@@ -83,13 +91,12 @@ def calc_pvalue(aucs, sigma):
         log10(pvalue)
     """
     l = np.array([[1, -1]])
-    # z = np.abs(np.diff(aucs)) / np.sqrt(sigma[0][0] + sigma[1][1] - sigma[0][1] - sigma[1][0])
+    #z = np.abs(np.diff(aucs)) / np.sqrt(sigma[0][0] + sigma[1][1] - sigma[0][1] - sigma[1][0])
     z = np.diff(aucs) / np.sqrt(np.dot(np.dot(l, sigma), l.T))
     if (np.diff(aucs) == 0):
         z = np.array([[0]])
     return scipy.stats.norm.sf(z, loc=0, scale=1), z
-    # return np.log10(2) + scipy.stats.norm.logsf(z, loc=0, scale=1) / np.log(10), z
-
+    #return pow(10, np.log10(2) + scipy.stats.norm.logsf(z, loc=0, scale=1) / np.log(10)), z
 
 
 def compute_ground_truth_statistics(ground_truth):
@@ -127,3 +134,59 @@ def delong_roc_test(ground_truth, predictions_one, predictions_two):
     predictions_sorted_transposed = np.vstack((predictions_one, predictions_two))[:, order]
     aucs, delongcov = fastDeLong(predictions_sorted_transposed, label_1_count)
     return calc_pvalue(aucs, delongcov)
+
+def calc_data_for_compbdt(array1, array2):
+    if array1[0][0] > array2[0][0]:
+        s11 = array2[0][0]
+    else:
+        s11 = array1[0][0]
+       
+    if array1[0][1] > array2[0][1]:        
+        s10 = 0
+    else:
+        s10 = array2[0][1] - array1[0][1]
+        
+    if array1[0][1] > array2[0][1]:        
+        s01 = array1[0][1] - array2[0][1]
+    else:
+        s01 = 0
+        
+    if array1[0][1] > array2[0][1]:        
+        s00 = array2[0][1]
+    else:
+        s00 = array1[0][1] 
+        
+    if array1[1][0] > array2[1][0]:        
+        r11 = array2[1][0]
+    else:
+        r11 = array1[1][0] 
+    
+    if array1[1][0] > array2[1][0]:
+        r10 = array1[1][0] - array2[1][0]
+    else:
+        r10 = 0
+    
+    if array1[1][0] > array2[1][0]:
+        r01 = 0
+    else:
+        r01 = array2[1][0] - array1[1][0]
+        
+    if (array1[1][1] > array2[1][1]):
+        r00 = array2[1][1]
+    else:
+        r00 = array1[1][1]
+        
+    return s11, s10, s01, s00, r11, r10, r01, r00
+
+
+# =============================================================================
+#         # матрица ошибок sklearn (инверсирована)
+#         cf = confusion_matrix(y_test, y_predict_lda)
+#         # матрица ошибок (стандартная)
+#         cf_lda = [[cf[1][1], cf[1][0]], [cf[0][1], cf[0][0]]]
+#         print(f"lda\n{cf_lda[0]}\n{cf_lda[1]}")
+#         # print(cf)
+#         cf = confusion_matrix(y_test, y_predict_qda)
+#         cf_qda = [[cf[1][1], cf[1][0]], [cf[0][1], cf[0][0]]]
+#         print(f"qda\n{cf_qda[0]}\n{cf_qda[1]}")
+# =============================================================================
