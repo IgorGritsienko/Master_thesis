@@ -1,69 +1,77 @@
-import numpy as np
 import copy
-from math import sqrt
-from math import pi
 import random
+from dataclasses import dataclass
+from math import pi
+from math import sqrt
+
+import numpy as np
+
 import files
 
+EULER_MASCHERONI_NUMBER = 0.57721
+NORMAL_DISTRIBUTION = 'norm'
+LAPLACE_DISTRIBUTION = 'laplace'
+UNIFORM_DISTRIBUTION = 'uniform'
+LOGISTIC_DISTRIBUTION = 'logistic'
+GUMBEL_DISTRIBUTION = 'gumbel'
 
-def Generate_CTR(freeCoef, weekCoef, week, noise):
-     # генерация КТИ
-    return freeCoef + weekCoef * week + noise
 
-def GenerateNormalNoise(rng, deviation):
-    # генерация одной записи шума
-    return rng.normal(0, deviation) # gauss
+@dataclass
+class Noise:
+    std: float
 
-def GenerateLaplaceNoise(rng, deviation):
-    b = deviation / sqrt(2)
-    return rng.laplace(0, b)
+    def generate_normal_noise(self, rng):
+        # генерация одной записи шума
+        return rng.normal(0, self.std)  # gauss
 
-def GenerateUniformnNoise(rng, deviation):
-    b = deviation * sqrt(3)
-    a = -b
-    return rng.uniform(a, b)
+    def generate_laplace_noise(self, rng):
+        b = self.std / sqrt(2)
+        return rng.laplace(0, b)
 
-def GenerateGumbelNoise(rng, deviation):
-    Euler_Mascheroni_constant = 0.57721
-    b = sqrt(6) * deviation / pi
-    m = -Euler_Mascheroni_constant * b
-    return rng.gumbel(m, b)
+    def generate_uniform_noise(self, rng):
+        b = self.std * sqrt(3)
+        a = -b
+        return rng.uniform(a, b)
 
-def GenerateLogisticNoise(rng, deviation):
-    s = sqrt(3) * deviation / pi
-    return rng.logistic(0, s)
+    def generate_logistic_noise(self, rng):
+        s = sqrt(3) * self.std / pi
+        return rng.logistic(0, s)
 
-def Create_intervals(filepath):
+    def generate_gumbel_noise(self, rng):
+        b = sqrt(6) * self.std / pi
+        m = -EULER_MASCHERONI_NUMBER * b
+        return rng.gumbel(m, b)
+
+
+def create_intervals(filepath):
     """
     Создаем интервалы в соответствии с частотами.
     Интервалы являются накапливаемыми, от 0 до 1 (100).
     """
-
-    frequency = files.Read_parameters(filepath)
+    frequency = files.read_parameters(filepath)
     frequency = [float(x) for x in frequency]
 
     intervals = []
     for i in range(len(frequency)):
-        if (len(intervals) == 0):
+        if len(intervals) == 0:
             intervals.append(frequency[i])
         else:
-            intervals.append(intervals[i-1] + frequency[i])
+            intervals.append(intervals[i - 1] + frequency[i])
     return intervals
 
 
-def Generate_weeks_frequency(intervals, records_amount, weeks):
+def generate_weeks_frequency(weeks, intervals, records_amount):
     """
-    генерируем вещественное число от 0 до 100 (вероятность)
-    перебираем интервалы, отвечающие за вероятность
-    если число больше интервала, то переходим к следующему
+    Генерируем вещественное число от 0 до 100 (вероятность).
+    Перебираем интервалы, отвечающие за вероятность.
+    Если число больше интервала, то переходим к следующему,
     иначе отмечаем, что кол-во записей КТИ для данной недели, соответствующей вероятности,
     увеличивается на 1
     """
-
     for i in range(records_amount):
         number = random.uniform(0.0, 1.0)
         for j in range(len(intervals)):
-            if (number > intervals[j]):
+            if number > intervals[j]:
                 continue
             else:
                 weeks[j][1] = weeks[j][1] + 1
@@ -71,72 +79,73 @@ def Generate_weeks_frequency(intervals, records_amount, weeks):
     return weeks
 
 
-def Sample_simulation(distribution, free_coef, week_coef, deviation, amount, weeks, interval):
-    noise = []
-    amount = int(amount)
+def sample_simulation(distribution, model_ctr, weeks, interval, amount):
+    """
+
+    """
+    noise_list = []
     rng = np.random.default_rng(seed=42)
-    if (distribution == 'norm'):
-        for i in range(amount):                                                     # создание массива с шумом
-            noise.append(GenerateNormalNoise(rng, deviation))
-    elif (distribution == 'laplace'):
-         for i in range(amount):                                                    
-            noise.append(GenerateLaplaceNoise(rng, deviation))
-    elif (distribution == 'uniform'):
-        for i in range(amount):                                                     
-            noise.append(GenerateUniformnNoise(rng, deviation))
-    elif (distribution == 'logistic'):
-        for i in range(amount):                                                     
-            noise.append(GenerateLogisticNoise(rng, deviation))
-    elif (distribution == 'gumbel'):
-        for i in range(amount):                                                     
-            noise.append(GenerateGumbelNoise(rng, deviation))
+    noise = Noise(model_ctr.std)
+    if distribution == NORMAL_DISTRIBUTION:
+        for i in range(amount):  # создание массива с шумом
+            noise_list.append(noise.generate_normal_noise(rng))
+    elif distribution == LAPLACE_DISTRIBUTION:
+        for i in range(amount):
+            noise_list.append(noise.generate_laplace_noise(rng))
+    elif distribution == UNIFORM_DISTRIBUTION:
+        for i in range(amount):
+            noise_list.append(noise.generate_uniform_noise(rng))
+    elif distribution == LOGISTIC_DISTRIBUTION:
+        for i in range(amount):
+            noise_list.append(noise.generate_logistic_noise(rng))
+    elif distribution == GUMBEL_DISTRIBUTION:
+        for i in range(amount):
+            noise_list.append(noise.generate_gumbel_noise(rng))
 
+    weeks_frequency = generate_weeks_frequency(weeks, interval, amount)
 
-    weeks = Generate_weeks_frequency(interval, amount, weeks)
-
-    CTR = []
-    # "распакуем" частоту в недель (н-р: 2 записи 11 недели распакуются в "11, 11")
-    for i in range(len(weeks)):
-        for j in range(weeks[i][1]):
-            CTR.append(weeks[i][0])
+    weeks_list = []
+    ctr_index_list = []
+    # "распаковываем" частоту в недель (н-р: 2 записи 11-й недели распакуются в "11, 11")
+    for i in range(len(weeks_frequency)):
+        for j in range(weeks_frequency[i][1]):
+            weeks_list.append(weeks_frequency[i][0])
 
     # генерация КТИ
     for i in range(int(amount)):
         # генерируется в один столбец, продолжая записи недель
-        CTR.append(Generate_CTR(free_coef, week_coef, CTR[i], noise[i]))
-        # преобразуем list в numpy array для дальнейшей работы
-    CTR =  np.array(CTR)
+        ctr_index_list.append(model_ctr.calculate_ctr_index(weeks_list[i], noise_list[i]))
 
-    return CTR
+    # преобразуем list в numpy array для дальнейшей работы
+    weeks_list = np.array(weeks_list).reshape(-1, 1)
+    ctr_index_list = np.array(ctr_index_list).reshape(-1, 1)
+
+    x = np.concatenate((weeks_list, ctr_index_list), axis=1)
+
+    return x
 
 
-def Data_union(norm_data, anem_data, norm_amount, anem_amount):
+def add_y(x, normal_data_amount, anemia_data_amount):
     """
-    Из каждого одномерного массива делаем двумерный с двумя столбцами - недели и КТИ.
-    Вертикально соединяем получившиеся массивы.
-    """
-    norm_data = np.reshape(norm_data, [int(norm_data.size / 2), 2], order="F")
-    anem_data = np.reshape(anem_data, [int(anem_data.size / 2), 2], order="F")
-    X = np.vstack([norm_data, anem_data])
-    return X
-
-
-def Add_y(norm_amount, anem_amount, X):
-    """
-    Первые norm_amount элементов генерируются, как '1'.
+    Первые norm_amount элементов генерируются, как '0'.
     Оставшиеся, как '0'.
-    1 - нормальные данные.
-    0 - выявлена анемия.
+    0 - нормальные данные.
+    1 - выявленная анемия.
     В конце производим склейку нового столбца.
     """
+    y = np.zeros(normal_data_amount)  # создаем вектор принадлежности наблюдений к классам
+    y = np.append(y, np.ones(anemia_data_amount)).reshape((-1, 1))
+    xy = np.hstack((x, y))
 
-    y = np.zeros(norm_amount)             # создаем вектор принадлежности наблюдений к классам
-    y = np.append(y, np.ones(anem_amount)).reshape((-1, 1))
-    Xy = np.hstack((X, y))
-    return Xy
+    return xy
 
 
-def manipulate_gen_data(distribution, weeks_norm, weeks_anem, normal_amount, anemia_amount, scaler, filename, intervals_norm, intervals_anem, params):
+def generate_sample(distribution,
+                    normal_model_ctr, anemia_model_ctr,
+                    weeks_normal, weeks_anemia,
+                    intervals_normal, intervals_anemia,
+                    normal_data_amount, anemia_data_amount,
+                    generated_sample_file):
     """
     Моделируем данные.
     Объединяем нормальный и анемичные данные в один массив.
@@ -144,30 +153,29 @@ def manipulate_gen_data(distribution, weeks_norm, weeks_anem, normal_amount, ane
     Добавляем target (0 или 1) к данным.
     Сохраняем в файл.
     """
-    
     # копия недель с частотами (изначально частоты по 0)
-    tmp_weeks_norm = copy.deepcopy(weeks_norm)
-    tmp_weeks_anem = copy.deepcopy(weeks_anem)
+    tmp_weeks_normal = copy.deepcopy(weeks_normal)
+    tmp_weeks_anemia = copy.deepcopy(weeks_anemia)
 
     #  моделирование выборки
-    normal_data = Sample_simulation(distribution, params[0], params[1], params[2],
-                                    normal_amount, tmp_weeks_norm, intervals_norm)
-    anemia_data = Sample_simulation(distribution, params[4], params[5], params[6],
-                                    anemia_amount, tmp_weeks_anem, intervals_anem)
+    x_normal = sample_simulation(distribution,
+                                 normal_model_ctr,
+                                 tmp_weeks_normal,
+                                 intervals_normal,
+                                 normal_data_amount)
+    x_anemia = sample_simulation(distribution,
+                                 anemia_model_ctr,
+                                 tmp_weeks_anemia,
+                                 intervals_anemia,
+                                 anemia_data_amount)
+    # объединить нормальные и анемичные наблюдения
+    # столбец: сначала нормальные, далее - анемичные
+    x = np.vstack([x_normal, x_anemia])
+    xy = add_y(x, normal_data_amount, anemia_data_amount)
 
-    #  объединение данных
-    X = Data_union(normal_data, anemia_data, normal_amount, anemia_amount)
+    # сохранение сгенерированных данных в файл
+    # mode 'a' - добавление новых записей к старым, создание файла при его отсутствии
+    # 'w' - перезапись
+    files.save_sample_to_csv(xy, generated_sample_file, save_mode='w')
 
-    #  тренируем скейлер на исходной выборке
-    #scaler.fit(X)
-
-    # применяем его к исходной выборке
-    #scaled_X = scaler.transform(X)
-
-    # добавляем столбец Y (target) к данным - 0 или 1
-    Xy = Add_y(normal_amount, anemia_amount, X) #scaled_X
-
-    #  сохранение сгенерированных данных в файл
-    files.Save_sample_to_csv(Xy, filename, _mode = 'w')
-    
-    return Xy
+    return xy

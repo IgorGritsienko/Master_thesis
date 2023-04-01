@@ -3,6 +3,18 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+#
+
+csv_files/
+criteria_results/
+roc_distribution/
+DeLonge/
+print_distribution_class.py
+some_backups_maybe_usefull.py
+manual LDA and previous concepts.py
+delong.py
+.vscode/
+
 # User-specific files
 *.rsuser
 *.suo
@@ -338,3 +350,4 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/print_distrubution_class.py

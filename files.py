@@ -1,79 +1,88 @@
 import os
-import pandas as pd
-import numpy as np
+import shutil
 
-def Read_parameters(filename):
+import numpy as np
+import pandas as pd
+
+
+def read_parameters(filename):
+    """Чтение строк из файла за исключением комментариев."""
     parameters = []
     with open(filename, 'rt') as f:
         for line in f:
             if line.startswith('#'):
                 continue
             parameters.append(line)
-    parameters = [x.rstrip("\n") for x in parameters]                          # удалить '/n' символы из элементов массива
+    parameters = [x.rstrip("\n") for x in parameters]  # удалить '/n' символы из элементов массива
     return parameters
 
 
-def Read_csv(filename, n_rows, position):
+def read_csv(filename, rows_number, position):
     # sep=',' для записи в один столбец через ','
-    df = pd.read_csv(filename, nrows=n_rows, skiprows=position, sep=';', header=0)
+    df = pd.read_csv(filename, nrows=rows_number, skiprows=position, sep=';', header=0)
     return df
 
-def Save_sample_to_csv(array, filename, _mode):
-    df = pd.DataFrame(data={"Weeks": array[:, 0], "CTR": array[:, 1], "target": array[:, 2]})       # 3 столбца датафрейма: КТИ, недели и класс (анемия или норма)
-    df.to_csv(filename, sep=';',index=False, mode=_mode, header=False, float_format='%.6f')              # mode 'a' - добавление новых записей к старым, создание файла при его отсутствии. 'w' - перезапись
+
+def save_sample_to_csv(array, filename, save_mode):
+    # 3 столбца датафрейма: КТИ, недели и класс (анемия или норма)
+    df = pd.DataFrame({"Weeks": array[:, 0],
+                       "CTR": array[:, 1],
+                       "target": array[:, 2]})
+    df.to_csv(filename,
+              sep=';',
+              index=False,
+              mode=save_mode,
+              header=False,
+              float_format='%.6f')
 
 
-
-def save_tests_results_to_csv(compbdt_data, filename):
-    df = pd.DataFrame(data={"s11": compbdt_data[:, 0], "s10": compbdt_data[:, 1], 
-                            "s01": compbdt_data[:, 2], "s00": compbdt_data[:, 3],
-                            "r11": compbdt_data[:, 4], "r10": compbdt_data[:, 5],
-                            "r01": compbdt_data[:, 6], "r00": compbdt_data[:, 7]})
-    df.to_csv(filename, sep=',', index = False, mode='a', header=not os.path.exists(filename))
-    
-
-
-def quality_criteria_results_print_save_to_file(spec, sens, roc, prob_norm, prob_anem, sigma_ratio, simAmount):
-    """
-    Сохраняем выборки специфичности, чувствительности и рок аук в файл.
-    Название файла соответствует отношение сигм и числу экспериментов.
-    """
-
-    np.savetxt("output/spec_res_ratio_" + str(sigma_ratio) + "_amount_" + str(simAmount) + ".txt", spec)
-    np.savetxt("output/sens_res_ratio_" + str(sigma_ratio) + "_amount_" + str(simAmount) + ".txt", sens)
-    np.savetxt("output/roc_res_ratio_" + str(sigma_ratio) + "_amount_" + str(simAmount) + ".txt", roc)
-
-def clear_file(filename):
-    """
-    Очистить файл, если он существует
-    """
-    
-    if os.path.exists(filename):
-        f = open(filename, 'r+')
+def clear_file(file_name):
+    """Очистить файл, если он существует."""
+    if os.path.exists(file_name):
+        f = open(file_name, 'r+')
         f.truncate(0)
         f.close()
-        
-def delete_file(filename):
-    if os.path.exists(filename):
-        os.remove(filename)
+
 
 def create_dir(dir_name):
-    """
-    Создать папку, если таковой еще не существует
-    """
-    
+    """Создать папку, если таковой еще не существует."""
     if not os.path.exists(dir_name):
-        os.mkdir(dir_name)
-        
-def write_to_txt(filename, array):
-        with open(filename, 'w') as f:
-            for item in array:
-                f.write("%s\n" % item)
-                
-def write_to_txt_ISW(filename, array, comment):
-        with open(filename, 'w') as f:
-            f.write("%s\n" % comment)
-            f.write("%s\n" % str(0))
-            f.write("%s\n" % str(len(array)))
-            for item in array:
-                f.write("%s\n" % item)
+        os.makedirs(dir_name, exist_ok=True)
+
+
+def delete_file(file_name):
+    """Удалить файл, если он существует."""
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+
+def delete_dir(dir_name):
+    if os.path.exists(dir_name):
+        shutil.rmtree(dir_name)
+
+
+def write_to_txt(file_name, array):
+    """Сохранить массив в файл."""
+    with open(file_name, 'w') as f:
+        for item in array:
+            f.write("%s\n" % item)
+
+
+def write_quality_criteria(path, distr, spec, sens, roc, sigma_ratio, simulation_amount):
+    """
+    Сохраняем выборки специфичности, чувствительности и рок аук в файл.
+    Название файла соответствует отношению среднеквадратичных отклонений и числу экспериментов.
+    """
+    np.savetxt(path + "/" + distr + "/spec_" + str(sigma_ratio) + "_" + str(simulation_amount) + ".txt", spec)
+    np.savetxt(path + "/" + distr + "/sens_" + str(sigma_ratio) + "_" + str(simulation_amount) + ".txt", sens)
+    np.savetxt(path + "/" + distr + "/roc_" + str(sigma_ratio) + "_" + str(simulation_amount) + ".txt", roc)
+
+
+def write_isw(file_name, array, comment):
+    """Сохранить массив в файл по требуемому ISW формату."""
+    with open(file_name, 'w') as f:
+        f.write("%s\n" % comment)
+        f.write("%s\n" % str(0))
+        f.write("%s\n" % str(len(array)))
+        for item in array:
+            f.write("%s\n" % item)
